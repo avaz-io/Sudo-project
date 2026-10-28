@@ -79,9 +79,9 @@ def test_organizer_cannot_publish_or_cancel_another_organizers_event(
     draft = create_event(make_organizer("owner@newuu.uz"), publish=False)
     other = make_organizer("other@newuu.uz")
 
-    # The draft is hidden from other organizers (404); 403 is also an acceptable denial.
-    assert client.post(f"/api/events/{draft['id']}/publish", headers=other).status_code in (403, 404)
-    assert client.post(f"/api/events/{draft['id']}/cancel", headers=other).status_code in (403, 404)
+    # The draft is hidden from other organizers, so they get 404, not 403 (CLAUDE.md).
+    assert client.post(f"/api/events/{draft['id']}/publish", headers=other).status_code == 404
+    assert client.post(f"/api/events/{draft['id']}/cancel", headers=other).status_code == 404
 
 
 def test_owner_can_edit_own_event(client, make_organizer, create_event):

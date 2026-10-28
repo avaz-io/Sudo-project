@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.types import utcnow
@@ -33,6 +33,11 @@ def _active_counts(db: Session, event_ids: Sequence[int]) -> dict[int, int]:
         .group_by(Registration.event_id)
     )
     return {event_id: count for event_id, count in rows}
+
+
+def active_count(db: Session, event_id: int) -> int:
+    """Active registrations for one event, i.e. the places taken (FR-09)."""
+    return _active_counts(db, [event_id]).get(event_id, 0)
 
 
 def _read_fields(event: Event, active: int) -> dict:
@@ -73,9 +78,30 @@ def to_detail(db: Session, event: Event, user: User | None) -> EventDetail:
 # --- Lookups and access checks --------------------------------------------------------------
 
 
-def get_visible_event(db: Session, event_id: int, user: User | None) -> Event:
+def lock_event(db: Session, event_id: int) -> Event | None:
+    """Loads the event and locks its row until the transaction ends (NFR-04).
+
+    PostgreSQL honours FOR UPDATE. SQLite ignores it, so there we first issue a no-op UPDATE,
+    which takes SQLite's database write lock and makes concurrent callers wait their turn.
+    """
+    if db.get_bind().dialect.name == "sqlite":
+        db.execute(
+            update(Event).where(Event.id == event_id).values(updated_at=Event.updated_at)
+        )
+    stmt = (
+        select(Event)
+        .where(Event.id == event_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    return db.scalar(stmt)
+
+
+def get_visible_event(
+    db: Session, event_id: int, user: User | None, *, lock: bool = False
+) -> Event:
     """FR-06: drafts are 404 for everyone except their organizer."""
-    event = db.get(Event, event_id)
+    event = lock_event(db, event_id) if lock else db.get(Event, event_id)
     if event is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, _NOT_FOUND)
     if event.status == EventStatus.DRAFT and (user is None or user.id != event.organizer_id):
@@ -85,10 +111,7 @@ def get_visible_event(db: Session, event_id: int, user: User | None) -> Event:
 
 def get_owned_event(db: Session, event_id: int, organizer: User, *, lock: bool = False) -> Event:
     """Returns the event if `organizer` owns it: 404 if missing or a hidden draft, else 403."""
-    stmt = select(Event).where(Event.id == event_id)
-    if lock:
-        stmt = stmt.with_for_update()
-    event = db.scalar(stmt)
+    event = lock_event(db, event_id) if lock else db.get(Event, event_id)
     if event is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, _NOT_FOUND)
     if event.organizer_id != organizer.id:

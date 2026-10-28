@@ -13,7 +13,8 @@ from pathlib import Path
 import pytest
 
 # The app reads its settings when it is imported, so set them first.
-os.environ.setdefault("SECRET_KEY", "test-secret-key")
+# 32+ bytes: shorter HS256 keys trigger PyJWT's InsecureKeyLengthWarning.
+os.environ["SECRET_KEY"] = "test-secret-key-for-pytest-only-0123456789"
 os.environ["DATABASE_URL"] = "sqlite://"  # placeholder, replaced by the test engine below
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))

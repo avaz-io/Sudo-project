@@ -1,9 +1,9 @@
 from fastapi import APIRouter
 
 from app.api.deps import CurrentUser, DbSession, Organizer
-from app.api.stubs import not_implemented
 from app.schemas import EventRead, MyRegistrationRead, UserRead, UserUpdate
 from app.services import events as event_service
+from app.services import registrations as registration_service
 from app.services import users as user_service
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -24,7 +24,7 @@ def update_me(body: UserUpdate, user: CurrentUser, db: DbSession):
 @router.get("/me/registrations", response_model=list[MyRegistrationRead])
 def my_registrations(user: CurrentUser, db: DbSession):
     """FR-10: My Registrations page, including events cancelled by the organizer."""
-    raise not_implemented()
+    return registration_service.list_my_registrations(db, user)
 
 
 @router.get("/me/events", response_model=list[EventRead])

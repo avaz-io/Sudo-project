@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Query, status
 
 from app.api.deps import DbSession, OptionalUser, Organizer
-from app.api.stubs import not_implemented
 from app.models import EventCategory
 from app.schemas import EventCreate, EventDetail, EventRead, EventUpdate, ParticipantList
 from app.services import events as event_service
+from app.services import registrations as registration_service
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -64,4 +64,4 @@ def complete_event(event_id: int, organizer: Organizer, db: DbSession):
 @router.get("/{event_id}/participants", response_model=ParticipantList)
 def list_participants(event_id: int, organizer: Organizer, db: DbSession):
     """FR-11: owner only; active registrations with names and dates."""
-    raise not_implemented()
+    return registration_service.list_participants(db, event_id, organizer)

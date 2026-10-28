@@ -1,9 +1,11 @@
 """FR-09 / FR-10 / NFR-04: registering for events and cancelling registrations."""
 
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 
 from app.models import EventStatus
+from app.services import events as event_service
 
 # Status codes follow CLAUDE.md: 400 rule violation, 404 hidden draft, 409 duplicate.
 
@@ -157,7 +159,7 @@ def test_cannot_cancel_without_active_registration(client, make_user, make_organ
 
     response = cancel(client, event["id"], make_user("student@newuu.uz"))
 
-    assert response.status_code in (400, 404)
+    assert response.status_code == 404
 
 
 def test_cannot_cancel_after_event_started(
@@ -213,14 +215,26 @@ def test_my_registrations_shows_event_cancelled_by_organizer(
 
 
 def test_concurrent_registrations_do_not_exceed_capacity(
-    client, make_user, make_organizer, create_event
+    client, make_user, make_organizer, create_event, monkeypatch
 ):
     event = create_event(make_organizer("org@newuu.uz"), capacity=1)
     students = [make_user(f"s{i}@newuu.uz") for i in range(8)]
+
+    # Widen the gap between the capacity check and the insert. Without the row lock every
+    # request would then see a free place and the event would be overbooked.
+    real_active_count = event_service.active_count
+
+    def slow_active_count(db, event_id):
+        count = real_active_count(db, event_id)
+        time.sleep(0.05)
+        return count
+
+    monkeypatch.setattr(event_service, "active_count", slow_active_count)
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         codes = list(pool.map(lambda h: register(client, event["id"], h).status_code, students))
 
     assert codes.count(201) == 1
+    assert codes.count(400) == len(students) - 1  # the losers see "event is full"
     detail = client.get(f"/api/events/{event['id']}").json()
     assert detail["active_registrations"] == 1
