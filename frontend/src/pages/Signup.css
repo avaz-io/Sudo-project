@@ -1,0 +1,32 @@
+.signup-page .auth-form-container {
+  max-width: 440px;
+  padding-block: 32px;
+}
+
+.signup-page .auth-description {
+  margin-bottom: 28px;
+}
+
+.signup-page .auth-form input {
+  margin-bottom: 20px;
+}
+
+.signup-page .auth-password-help {
+  margin-top: -10px;
+  margin-bottom: 20px;
+  color: #706d7b;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.signup-page .auth-form input:disabled {
+  background: #f6f5f8;
+  color: #706d7b;
+  cursor: wait;
+}
+
+@media (max-width: 480px) {
+  .signup-page .auth-form-container h1 {
+    font-size: 28px;
+  }
+}
