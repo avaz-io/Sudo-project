@@ -31,10 +31,35 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
       CORS_ORIGINS: ${CORS_ORIGINS:-[]}
       UNIVERSITY_TIMEZONE: ${UNIVERSITY_TIMEZONE:-Asia/Tashkent}
-    ports:
-      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+      # The backend is internal; accept forwarded HTTPS headers from Compose peers.
+      FORWARDED_ALLOW_IPS: "*"
     volumes:
       - backend-data:/data
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+  web:
+    image: campusly-web:local
+    build:
+      context: .
+      dockerfile: devops/Dockerfile.web
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${WEB_PORT:-${BACKEND_PORT:-8000}}:8080"
+    volumes:
+      - type: bind
+        source: ${FRONTEND_DIST_DIR:-./devops/site}
+        target: /usr/share/nginx/html
+        read_only: true
+        bind:
+          create_host_path: false
     init: true
     read_only: true
     tmpfs:

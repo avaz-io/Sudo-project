@@ -4,13 +4,13 @@ services:
     # ngrok 3.39.13; the digest keeps the demo image reproducible.
     image: ngrok/ngrok:latest@sha256:ff3b5c3674432d14a786349908b7bdf28ee56c25662637afcbe7180d471993ef
     depends_on:
-      backend:
+      web:
         condition: service_healthy
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Set NGROK_AUTHTOKEN in the root .env file}
     command:
       - http
-      - http://backend:8000
+      - http://web:8080
       - --log=stdout
       - --log-format=json
     init: true
