@@ -1,0 +1,5 @@
+# Local preview only: defer lint while retaining builds and available test scripts.
+# Use a separate project so preview data does not affect the normal deployment.
+services:
+  frontend-checks:
+    command: ["npm", "run", "test", "--if-present"]
