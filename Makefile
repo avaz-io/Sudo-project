@@ -6,7 +6,7 @@ DEPLOY_FLAGS = --build --force-recreate --always-recreate-deps --wait --wait-tim
 .PHONY: help test verify deploy demo status logs down
 
 help:
-	@echo "make test    Run the complete backend test suite in Docker"
+	@echo "make test    Build the frontend, run frontend checks and all backend tests"
 	@echo "make verify  Check website routing and test gating in disposable containers"
 	@echo "make deploy  Rerun tests, then start the backend and website gateway"
 	@echo "make demo    Rerun tests, then share the website through ngrok"
@@ -15,7 +15,9 @@ help:
 	@echo "make down    Remove this project's containers; keep the database volume"
 
 test:
-	$(BASE) up --build --force-recreate --exit-code-from tests tests
+	$(BASE) build web frontend-checks tests
+	$(BASE) run --rm --no-deps frontend-checks
+	$(BASE) run --rm --no-deps tests
 
 verify:
 	python3 devops/verify_routing.py

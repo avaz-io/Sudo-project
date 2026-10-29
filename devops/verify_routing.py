@@ -1,10 +1,11 @@
-"""Exercise the website gateway in an isolated, disposable Compose project."""
+"""Verify the compiled website and both deployment gates in a disposable project."""
 
 import json
 import os
 import subprocess
 import tempfile
 from email.message import Message
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
@@ -16,15 +17,33 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+class AssetLinks(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.urls: set[str] = set()
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        for name, value in attrs:
+            if name in {"src", "href"} and value and value.startswith("/assets/"):
+                self.urls.add(value)
+
+
 def fetch(
     base_url: str,
     path: str,
     expected_status: int = 200,
     headers: dict[str, str] | None = None,
+    payload: dict[str, str] | None = None,
 ) -> tuple[bytes, Message]:
+    request_headers = dict(headers or {})
+    data = None
+    if payload is not None:
+        request_headers["Content-Type"] = "application/json"
+        data = json.dumps(payload).encode()
     opener = build_opener(ProxyHandler({}), NoRedirect())
+    request = Request(base_url + path, data=data, headers=request_headers)
     try:
-        response = opener.open(Request(base_url + path, headers=headers or {}), timeout=5)
+        response = opener.open(request, timeout=5)
     except HTTPError as error:
         response = error
     with response:
@@ -32,29 +51,81 @@ def fetch(
         return response.read(), response.headers
 
 
+def verify_site(base_url: str) -> None:
+    html, headers = fetch(base_url, "/")
+    assert "text/html" in headers["Content-Type"]
+    assert b'id="root"' in html
+    assert b"/src/main.jsx" not in html, "The gateway served unbuilt Vite source"
+    body, _ = fetch(base_url, "/login")
+    assert body == html, "Refreshing the React login route must return the app shell"
+
+    assets = AssetLinks()
+    assets.feed(html.decode())
+    assert any(url.endswith(".js") for url in assets.urls)
+    assert any(url.endswith(".css") for url in assets.urls)
+    for url in assets.urls:
+        body, headers = fetch(base_url, url)
+        assert body, f"Empty asset: {url}"
+        if url.endswith(".js"):
+            assert "javascript" in headers["Content-Type"], url
+        elif url.endswith(".css"):
+            assert "text/css" in headers["Content-Type"], url
+    fetch(base_url, "/favicon.svg")
+    fetch(base_url, "/assets/missing.js", 404)
+    fetch(base_url, "/.env", 404)
+
+    body, _ = fetch(base_url, "/api/health")
+    assert json.loads(body) == {"status": "ok"}
+    body, _ = fetch(base_url, "/api/events?search=routing-check")
+    assert json.loads(body) == []
+    body, _ = fetch(base_url, "/api/missing", 404)
+    assert json.loads(body) == {"detail": "Not Found"}
+    body, _ = fetch(base_url, "/openapi.json")
+    assert "/api/auth/login" in json.loads(body)["paths"]
+    for route in ["/docs", "/docs/oauth2-redirect", "/redoc"]:
+        _, headers = fetch(base_url, route)
+        assert "text/html" in headers["Content-Type"], route
+
+    _, headers = fetch(base_url, "/api/events/", 307)
+    assert headers["Location"] == f"{base_url}/api/events"
+    _, headers = fetch(
+        base_url, "/api/events/?search=check", 307,
+        {"Host": "campusly.example", "X-Forwarded-Proto": "https"},
+    )
+    assert headers["Location"] == "https://campusly.example/api/events?search=check"
+    print("PASS: compiled frontend, login route, assets, API, docs, and redirects.", flush=True)
+
+    credentials = {"email": f"routing-{uuid4().hex[:8]}@example.com", "password": uuid4().hex}
+    fetch(
+        base_url, "/api/auth/register", 201,
+        payload={**credentials, "display_name": "Routing Check"},
+    )
+    body, _ = fetch(base_url, "/api/auth/login", payload=credentials)
+    login = json.loads(body)
+    assert login["access_token"] and login["user"]["email"] == credentials["email"]
+    body, _ = fetch(
+        base_url, "/api/users/me",
+        headers={"Authorization": f"Bearer {login['access_token']}"},
+    )
+    assert json.loads(body)["email"] == credentials["email"]
+    body, _ = fetch(
+        base_url, "/api/auth/login", 401,
+        payload={**credentials, "password": "incorrect-password"},
+    )
+    assert isinstance(json.loads(body)["detail"], str)
+    print("PASS: registration, login, bearer auth, and login errors via Nginx.", flush=True)
+
+
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
     project = f"campusly-routing-check-{uuid4().hex[:8]}"
-    compose_files = ["-f", str(root / "compose.yaml")]
-    cache = root / ".cache"
-    cache.mkdir(exist_ok=True)
+    base_files = ["-f", str(root / "compose.yaml")]
+    compose_files = list(base_files)
+    environment = os.environ.copy()
+    environment["WEB_PORT"] = "0"
 
-    # Keep bind mounts in the workspace, which is shared with the Docker daemon.
-    with tempfile.TemporaryDirectory(prefix="routing-", dir=cache) as directory:
+    with tempfile.TemporaryDirectory(prefix="campusly-routing-") as directory:
         workspace = Path(directory)
-        workspace.chmod(0o755)
-        frontend = workspace / "frontend"
-        frontend.mkdir(mode=0o755)
-        assets = frontend / "assets"
-        assets.mkdir(mode=0o755)
-        index = frontend / "index.html"
-        html = "<!doctype html><title>Routing fixture</title><main>Campusly routing fixture</main>"
-        index.write_text(html)
-        (assets / "app.js").write_text("console.log('routing fixture');")
-        (frontend / ".env").write_text("fixture-only")
-
-        environment = os.environ.copy()
-        environment.update(WEB_PORT="0", FRONTEND_DIST_DIR=str(frontend))
 
         def compose(
             *args: str, check: bool = True, capture: bool = False
@@ -69,68 +140,44 @@ def main() -> None:
             )
 
         try:
-            compose(
-                "up", "--build", "--force-recreate", "--always-recreate-deps",
-                "--wait", "--wait-timeout", "180", "web",
-            )
-            address = compose("port", "web", "8080", capture=True).stdout.strip()
-            base_url = f"http://{address}"
+            compose("build", "web", "frontend-checks", "backend", "tests")
+            for failing_service in ["tests", "frontend-checks"]:
+                override = workspace / f"fail-{failing_service}.json"
+                override.write_text(json.dumps({"services": {
+                    service: {"command": [
+                        "sh", "-c", f"exit {1 if service == failing_service else 0}",
+                    ]}
+                    for service in ["tests", "frontend-checks"]
+                }}))
+                compose_files[:] = [*base_files, "-f", str(override)]
+                result = compose(
+                    "up", "--no-build", "--force-recreate", "--wait",
+                    "--wait-timeout", "30", "web", check=False,
+                )
+                assert result.returncode != 0, f"{failing_service} must block startup"
+                for service in ["backend", "web"]:
+                    container = compose(
+                        "ps", "--all", "--quiet", service, capture=True,
+                    ).stdout.strip()
+                    state = json.loads(subprocess.check_output(
+                        ["docker", "inspect", "--format", "{{json .State}}", container],
+                        text=True,
+                    ))
+                    assert state["Status"] == "created", service
+                    assert state["StartedAt"] == "0001-01-01T00:00:00Z", service
+                print(f"PASS: failure in {failing_service} blocks deployment.", flush=True)
+                compose("down", "--volumes")
 
-            for path in ["/", "/events/123"]:
-                body, _ = fetch(base_url, path)
-                assert body.decode() == html, path
-            body, headers = fetch(base_url, "/assets/app.js")
-            assert body == b"console.log('routing fixture');"
-            assert "javascript" in headers["Content-Type"]
-            fetch(base_url, "/assets/missing.js", 404)
-            fetch(base_url, "/.env", 404)
-
-            body, _ = fetch(base_url, "/api/health")
-            assert json.loads(body) == {"status": "ok"}
-            body, _ = fetch(base_url, "/api/events?search=routing-fixture")
-            assert json.loads(body) == []
-            body, _ = fetch(base_url, "/api/missing", 404)
-            assert json.loads(body) == {"detail": "Not Found"}
-            body, _ = fetch(base_url, "/openapi.json")
-            assert "/api/health" in json.loads(body)["paths"]
-            for path in ["/docs", "/docs/oauth2-redirect", "/redoc"]:
-                _, headers = fetch(base_url, path)
-                assert "text/html" in headers["Content-Type"], path
-
-            _, headers = fetch(base_url, "/api/events/", 307)
-            assert headers["Location"] == f"{base_url}/api/events"
-            _, headers = fetch(
-                base_url, "/api/events/?search=fixture", 307,
-                {"Host": "campusly.example", "X-Forwarded-Proto": "https"},
-            )
-            assert headers["Location"] == "https://campusly.example/api/events?search=fixture"
-            print("PASS: frontend, SPA routes, assets, API, docs, and HTTPS redirects.", flush=True)
-
-            index.unlink()
-            body, _ = fetch(base_url, "/", 503)
-            assert b"Frontend build is not available yet" in body
-            fetch(base_url, "/api/health")
-            print("PASS: missing frontend returns 503 while the API stays available.", flush=True)
-
-            compose("down", "--volumes")
-            override = workspace / "fail-tests.json"
-            override.write_text(json.dumps({"services": {
-                "tests": {"command": ["python", "-c", "raise SystemExit(1)"]},
-            }}))
-            compose_files.extend(["-f", str(override)])
+            compose_files[:] = base_files
             result = compose(
-                "up", "--no-build", "--force-recreate", "--wait",
-                "--wait-timeout", "30", "web", check=False,
+                "up", "--no-build", "--force-recreate", "--always-recreate-deps",
+                "--wait", "--wait-timeout", "180", "web", check=False,
             )
-            assert result.returncode != 0, "Failing tests must reject deployment"
-            for service in ["backend", "web"]:
-                container = compose("ps", "--all", "--quiet", service, capture=True).stdout.strip()
-                state = json.loads(subprocess.check_output(
-                    ["docker", "inspect", "--format", "{{json .State}}", container], text=True,
-                ))
-                assert state["Status"] == "created", f"{service} started after failed tests"
-                assert state["StartedAt"] == "0001-01-01T00:00:00Z", service
-            print("PASS: failing tests prevent both backend and gateway startup.", flush=True)
+            if result.returncode != 0:
+                compose("logs", "--tail=40", "tests", "frontend-checks")
+                raise RuntimeError("Deployment checks failed; inspect the job output above")
+            address = compose("port", "web", "8080", capture=True).stdout.strip()
+            verify_site(f"http://{address}")
         finally:
             compose("down", "--volumes")
 

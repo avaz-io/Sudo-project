@@ -1,45 +1,45 @@
 # University Event Manager
 
-Campusly is a university event manager with a FastAPI backend and SQLite database.
-The frontend has not been added yet. An Nginx gateway is ready to serve its static
-production build and the backend through one local address or ngrok domain.
+Campusly is a university event manager with a React/Vite frontend, FastAPI backend,
+and SQLite database. Docker builds the frontend and serves it alongside the API
+through one Nginx address or ngrok domain.
 
 ## Run with Docker
 
-Install Docker Engine with the Compose plugin and GNU Make. Run commands from the
-repository root.
+Install Docker Engine with the Compose plugin. Run commands from the repository
+root; Node, npm, Make, and a manually built `frontend/dist/` are not required for
+deployment.
 
 1. Copy `.env.example` to `.env` if you do not already have a root `.env`.
 2. Generate a key with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`
    and put it in `.env` as `SECRET_KEY`. Keep this key between deployments.
-3. Run the tests and start the backend and gateway:
+3. Build, check, and start the application:
 
    ```bash
-   make test
-   make deploy
+   docker compose up --build --force-recreate --always-recreate-deps \
+     --wait --wait-timeout 180 web
    ```
 
-`make deploy` builds the images, reruns every test, and starts the backend only after
-the test job succeeds. The gateway starts after the backend becomes healthy. Both
-services must pass their health checks before the command returns success.
+Both backend tests and frontend checks must succeed before the backend starts.
+The gateway waits for a healthy backend and checks the frontend homepage and API.
+`make deploy` is an optional shortcut for the same Docker command.
 
-- Website: http://localhost:8000/ (HTTP 503 until a frontend build is supplied)
+- Website: http://localhost:8000/
+- Login page: http://localhost:8000/login
+- Signup page: http://localhost:8000/signup
 - API docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/api/health
-- Public demo: add `NGROK_AUTHTOKEN` to the root `.env`, then run `make demo`.
-- Routing and test-gate verification: `make verify`.
-- Stop the containers while keeping the database: `make down`.
+- Set `WEB_PORT` in `.env` to use a different available port.
+- Public demo: add `NGROK_AUTHTOKEN` to `.env`, then follow the deployment guide.
+- Verification: `python3 devops/verify_routing.py` or `make verify`.
+- Stop containers while keeping data: `docker compose down --remove-orphans`.
 
-## Connect the frontend when it is ready
-
-The frontend owner should provide a static production build containing `index.html`
-and its assets, with API calls using relative paths such as `/api/events`. Set
-`FRONTEND_DIST_DIR=./frontend/dist` in the root `.env` if that is the build output,
-then run `make deploy` locally or `make demo` to share it. The directory must exist
-before deployment. Nginx serves pages and forwards API traffic under the same origin.
+The Node build stage uses the frontend's package lockfile, and the resulting assets
+are copied into the Nginx image. The current login page already calls
+`/api/auth/login` through the shared address. `FRONTEND_DIST_DIR` is no longer used.
 
 See [the deployment guide](devops/README.md) for configuration, ngrok logs, and
-the frontend handoff requirements.
+check details, and database persistence.
 
 ## Team folders
 

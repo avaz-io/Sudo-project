@@ -17,6 +17,20 @@ services:
       - ALL
     restart: "no"
 
+  frontend-checks:
+    image: campusly-frontend-checks:local
+    build:
+      context: .
+      dockerfile: devops/Dockerfile.web
+      target: frontend-checks
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    restart: "no"
+
   backend:
     image: campusly-backend:local
     build:
@@ -24,6 +38,8 @@ services:
       target: runtime
     depends_on:
       tests:
+        condition: service_completed_successfully
+      frontend-checks:
         condition: service_completed_successfully
     environment:
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the root .env file}
@@ -48,18 +64,12 @@ services:
     build:
       context: .
       dockerfile: devops/Dockerfile.web
+      target: runtime
     depends_on:
       backend:
         condition: service_healthy
     ports:
       - "127.0.0.1:${WEB_PORT:-${BACKEND_PORT:-8000}}:8080"
-    volumes:
-      - type: bind
-        source: ${FRONTEND_DIST_DIR:-./devops/site}
-        target: /usr/share/nginx/html
-        read_only: true
-        bind:
-          create_host_path: false
     init: true
     read_only: true
     tmpfs:

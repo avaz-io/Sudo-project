@@ -5,6 +5,16 @@
 !backend/app/
 !backend/app/**
 !backend/requirements.txt
+!frontend/
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/index.html
+!frontend/vite.config.js
+!frontend/eslint.config.js
+!frontend/src/
+!frontend/src/**
+!frontend/public/
+!frontend/public/**
 !tests/
 !tests/**
 !pytest.ini
@@ -14,6 +24,8 @@
 !devops/nginx.conf
 
 **/__pycache__/
+**/node_modules/
+**/dist/
 **/.pytest_cache/
 **/*.py[cod]
 **/.env
