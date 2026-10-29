@@ -7,9 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "npm run build && vite preview",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm test && npm run lint && npm run build",
+    "doctor": "node scripts/doctor.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/montserrat": "^5.3.0",
+    "@fontsource-variable/open-sans": "^5.3.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^7.18.5"

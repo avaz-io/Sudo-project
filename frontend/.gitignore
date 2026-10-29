@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local secrets and generated verification output
+.env
+.env.*
+!.env.example
+coverage/
+.vite/
