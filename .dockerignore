@@ -1,4 +1,4 @@
-# Only backend source, tests, and dependency configuration enter the build context.
+# Only application source, tests, and image configuration enter the build context.
 **
 !Dockerfile
 !backend/
@@ -10,6 +10,8 @@
 !pytest.ini
 !devops/
 !devops/constraints.txt
+!devops/Dockerfile.web
+!devops/nginx.conf
 
 **/__pycache__/
 **/.pytest_cache/
