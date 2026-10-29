@@ -5,45 +5,6 @@ suite, and serves the compiled site through Nginx. You do not need Node, npm,
 a host `dist/` directory, or Make to deploy. Make provides optional shortcuts;
 Python 3.10+ is needed for `devops/verify_routing.py`.
 
-## Current blocking frontend issue
-
-The production frontend build succeeds and all 52 backend tests pass. The existing
-frontend lint command fails at `frontend/src/main.jsx:14` with
-`react-refresh/only-export-components`: `LoginPage` is defined in the entry module
-without an export. The usual frontend fix is to move it into an exported component
-module and import it into `main.jsx`.
-
-Frontend lint is a required startup check. Until the frontend owner fixes this
-error, `make test`, `make deploy`, `make demo`, and the full `make verify` command
-return a failure. This setup keeps the owner's source and lint configuration
-unchanged. A successful production build alone does not satisfy the deployment gate.
-
-The built images were checked independently in disposable containers: compiled
-HTML, JavaScript, CSS, `/login` refresh, API/docs routes, registration, login,
-bearer authentication, login errors, and HTTP/HTTPS redirects passed. That runtime
-compatibility check does not waive the failing lint job.
-
-## Local preview while lint is pending
-
-To inspect the application before the frontend owner fixes lint, opt in explicitly:
-
-```bash
-docker compose -p campusly-preview -f compose.yaml -f compose.preview.yaml up \\
-  --build --force-recreate --always-recreate-deps --wait --wait-timeout 180 web
-```
-
-`compose.preview.yaml` defers only the lint command. The frontend production build,
-any available frontend test script, and all backend tests remain required. There
-is currently no frontend test script. Normal deployment continues to require lint.
-The preview's separate project name gives it its own SQLite volume.
-
-Open the root `.env`'s `WEB_PORT` (8001 in the current local environment). To stop
-this preview while keeping its data:
-
-```bash
-docker compose -p campusly-preview -f compose.yaml -f compose.preview.yaml down
-```
-
 ## Configure the root environment
 
 Copy `.env.example` to `.env` if a root `.env` does not already exist. Set
@@ -80,7 +41,7 @@ docker compose config --quiet
 
 ## Build and run locally
 
-After the frontend lint issue is fixed, run from the repository root:
+Run from the repository root:
 
 ```bash
 docker compose up --build --force-recreate --always-recreate-deps \
@@ -108,6 +69,7 @@ At the configured `WEB_PORT` (8000 by default), open:
 
 - `http://localhost:8000/` for the existing frontend homepage.
 - `http://localhost:8000/login` for the React login page.
+- `http://localhost:8000/signup` for the React signup page.
 - `http://localhost:8000/docs` for API documentation.
 - `http://localhost:8000/api/health` for API health.
 
@@ -159,8 +121,8 @@ API. An empty token rejects configuration before startup. A live public tunnel
 has not been verified without a supplied authtoken; a running ngrok container does
 not by itself prove that its public endpoint has been established.
 
-Keep the Docker host online while sharing the URL. The current frontend lint
-failure also blocks this command.
+Keep the Docker host online while sharing the URL. Both demo and normal deployment
+require frontend lint, available frontend tests, the production build, and backend tests.
 
 ## Verify the integrated application
 
@@ -179,7 +141,7 @@ There is no frontend fixture or host bind mount. Test accounts exist only in the
 verification project's disposable database. Containers, its volume, and temporary
 overrides are removed afterward; the normal deployment and its data are untouched.
 The intentional failures appear before `PASS` messages for the negative checks.
-The current real lint failure prevents the full verification from passing.
+Frontend lint now passes after the account-page extraction merged into main.
 
 This HTTP smoke check verifies serving and API connectivity. It does not execute
 React in a browser or replace frontend component/browser tests.

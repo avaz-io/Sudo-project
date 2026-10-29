@@ -4,26 +4,6 @@ Campusly is a university event manager with a React/Vite frontend, FastAPI backe
 and SQLite database. Docker builds the frontend and serves it alongside the API
 through one Nginx address or ngrok domain.
 
-## Current frontend check failure
-
-The frontend production build and all 52 backend tests pass. Frontend lint fails
-at `frontend/src/main.jsx:14` (`react-refresh/only-export-components`). Deployment
-remains blocked until the frontend owner fixes that error. The frontend source
-and its lint rules have not been changed by the DevOps setup.
-
-## Preview while lint is pending
-
-For local inspection, defer lint with the explicit preview override. Frontend
-builds, available frontend tests, and all backend tests still run:
-
-```bash
-docker compose -p campusly-preview -f compose.yaml -f compose.preview.yaml up \
-  --build --force-recreate --always-recreate-deps --wait --wait-timeout 180 web
-```
-
-The preview uses the `WEB_PORT` in your root `.env` and a separate database volume.
-The current local environment uses port 8001. Normal deployment keeps lint required.
-
 ## Run with Docker
 
 Install Docker Engine with the Compose plugin. Run commands from the repository
@@ -33,7 +13,7 @@ deployment.
 1. Copy `.env.example` to `.env` if you do not already have a root `.env`.
 2. Generate a key with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`
    and put it in `.env` as `SECRET_KEY`. Keep this key between deployments.
-3. Once the frontend lint issue is fixed, build, check, and start the application:
+3. Build, check, and start the application:
 
    ```bash
    docker compose up --build --force-recreate --always-recreate-deps \
@@ -46,6 +26,7 @@ The gateway waits for a healthy backend and checks the frontend homepage and API
 
 - Website: http://localhost:8000/
 - Login page: http://localhost:8000/login
+- Signup page: http://localhost:8000/signup
 - API docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/api/health
 - Set `WEB_PORT` in `.env` to use a different available port.
