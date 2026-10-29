@@ -1,0 +1,21 @@
+# Opt in with: docker compose -f compose.yaml -f compose.ngrok.yaml up ngrok
+services:
+  ngrok:
+    # ngrok 3.39.13; the digest keeps the demo image reproducible.
+    image: ngrok/ngrok:latest@sha256:ff3b5c3674432d14a786349908b7bdf28ee56c25662637afcbe7180d471993ef
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Set NGROK_AUTHTOKEN in the root .env file}
+    command:
+      - http
+      - http://backend:8000
+      - --log=stdout
+      - --log-format=json
+    init: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
