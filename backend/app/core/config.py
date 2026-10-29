@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
     university_timezone: str = "Asia/Tashkent"
 
+    # Fill an empty database with demo users and events on startup (local development).
+    seed_demo_data: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:
