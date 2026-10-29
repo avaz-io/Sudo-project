@@ -3,10 +3,11 @@ BASE = $(COMPOSE) -f compose.yaml
 DEMO = $(BASE) -f compose.ngrok.yaml
 DEPLOY_FLAGS = --build --force-recreate --always-recreate-deps --wait --wait-timeout 180
 
-.PHONY: help test deploy demo status logs down
+.PHONY: help test verify deploy demo status logs down
 
 help:
 	@echo "make test    Run the complete backend test suite in Docker"
+	@echo "make verify  Check website routing and test gating in disposable containers"
 	@echo "make deploy  Rerun tests, then start the backend and website gateway"
 	@echo "make demo    Rerun tests, then share the website through ngrok"
 	@echo "make status  Show service status, including the finished test job"
@@ -15,6 +16,9 @@ help:
 
 test:
 	$(BASE) up --build --force-recreate --exit-code-from tests tests
+
+verify:
+	python3 devops/verify_routing.py
 
 deploy:
 	$(BASE) up $(DEPLOY_FLAGS) web
