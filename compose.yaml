@@ -15,8 +15,6 @@ services:
       - /tmp
     cap_drop:
       - ALL
-    security_opt:
-      - no-new-privileges:true
     restart: "no"
 
   backend:
@@ -43,8 +41,6 @@ services:
       - /tmp
     cap_drop:
       - ALL
-    security_opt:
-      - no-new-privileges:true
     restart: unless-stopped
 
 volumes:
