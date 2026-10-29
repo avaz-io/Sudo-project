@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './App.css'
+import Header from './components/Header.jsx'
 
 const categories = ['Academic', 'Cultural', 'Social', 'Extracurricular', 'Sports', 'Other']
 const events = [
@@ -32,12 +33,7 @@ export default function App() {
   return (
     <>
       <a className="skip-link" href="#main">Skip to content</a>
-      <header className="site-header" id="home">
-        <div className="container header-content">
-          <a className="brand" href="#home">Campusly<span>↗</span></a>
-          <nav aria-label="Main navigation"><a href="#home">Home</a><a href="#categories">Categories</a><a href="#events">Explore events →</a></nav>
-        </div>
-      </header>
+      <Header />
       <main id="main">
         <section className="hero" aria-labelledby="hero-title">
           <div className="container">
