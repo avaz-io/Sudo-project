@@ -1,0 +1,51 @@
+name: campusly
+
+services:
+  tests:
+    image: campusly-tests:local
+    build:
+      context: .
+      target: tests
+    environment:
+      SECRET_KEY: tests-only-secret-key-never-used-for-deployment
+      DATABASE_URL: sqlite://
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+
+  backend:
+    image: campusly-backend:local
+    build:
+      context: .
+      target: runtime
+    depends_on:
+      tests:
+        condition: service_completed_successfully
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the root .env file}
+      DATABASE_URL: sqlite:////data/event_manager.db
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      CORS_ORIGINS: ${CORS_ORIGINS:-[]}
+      UNIVERSITY_TIMEZONE: ${UNIVERSITY_TIMEZONE:-Asia/Tashkent}
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - backend-data:/data
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  backend-data:
