@@ -1,12 +1,35 @@
-FROM nginx:stable-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949
+FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS frontend-source
+
+ENV CI=true \
+    NPM_CONFIG_UPDATE_NOTIFIER=false
+WORKDIR /app/frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY frontend/index.html frontend/vite.config.js frontend/eslint.config.js ./
+COPY frontend/src ./src
+COPY frontend/public ./public
+
+FROM frontend-source AS frontend-checks
+ENV NPM_CONFIG_CACHE=/tmp/npm-cache
+USER node
+CMD ["sh", "-c", "npm run lint && npm run test --if-present"]
+
+FROM frontend-source AS frontend-build
+RUN npm run build
+
+FROM nginx:stable-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949 AS runtime
 
 RUN rm -f /usr/share/nginx/html/index.html /usr/share/nginx/html/50x.html
 COPY devops/nginx.conf /etc/nginx/nginx.conf
+COPY --from=frontend-build /app/frontend/dist /usr/share/nginx/html
 
 USER nginx
 EXPOSE 8080
 HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=5 \
-    CMD wget -q -O /dev/null http://127.0.0.1:8080/api/health || exit 1
+    CMD wget -q -O /dev/null http://127.0.0.1:8080/ \
+        && wget -q -O /dev/null http://127.0.0.1:8080/api/health || exit 1
 
 ENTRYPOINT ["nginx"]
 CMD ["-g", "daemon off;"]
