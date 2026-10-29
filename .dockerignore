@@ -1,0 +1,23 @@
+# Only backend source, tests, and dependency configuration enter the build context.
+**
+!Dockerfile
+!backend/
+!backend/app/
+!backend/app/**
+!backend/requirements.txt
+!tests/
+!tests/**
+!pytest.ini
+!devops/
+!devops/constraints.txt
+
+**/__pycache__/
+**/.pytest_cache/
+**/*.py[cod]
+**/.env
+**/.env.*
+**/*.db
+**/*.db-*
+**/*.sqlite*
+**/*.pem
+**/*.key
