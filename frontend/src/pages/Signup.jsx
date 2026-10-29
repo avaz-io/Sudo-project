@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import './Login.css'
 import './Signup.css'
 
 export default function Signup({ onSignup }) {
+  const location = useLocation()
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -124,7 +125,7 @@ export default function Signup({ onSignup }) {
           </form>
 
           <p className="auth-switch">
-            Already have an account? <Link to="/login">Log in</Link>
+            Already have an account? <Link to="/login" state={location.state}>Log in</Link>
           </p>
         </div>
       </section>

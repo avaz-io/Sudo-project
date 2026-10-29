@@ -1,0 +1,19 @@
+.detail-hero { background: var(--ink); color: white; padding: 28px 0 56px; }
+.back-link { display: inline-block; margin-bottom: 35px; font-size: 13px; color: #d6d2e2; }
+.detail-hero-grid { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 70px; align-items: center; }
+.detail-hero h1 { font-size: clamp(34px, 4.4vw, 58px); line-height: 1.12; letter-spacing: -1.8px; margin: 24px 0; overflow-wrap: anywhere; }
+.detail-hero p { color: #d6d2e2; margin-bottom: 20px; }
+.detail-photo { width: 100%; height: 260px; object-fit: cover; border-radius: 12px; }
+.detail-photo-label { position: absolute; bottom: 8px; right: 12px; font-size: 10px; background: #2b293dbb; color: white; padding: 4px 8px; border-radius: 4px; }
+.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 70px; align-items: start; padding-block: 48px 80px; }
+.detail-about h2 { margin: 12px 0 24px; font-size: 28px; }
+.description { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); line-height: 1.9; }
+.detail-about .button-row { margin-top: 32px; }
+.booking-panel h2 { font-size: 27px; margin-top: 12px; }
+.booking-panel dl { margin: 26px 0; }
+.booking-panel dt { font-size: 12px; font-weight: 700; margin-top: 20px; }
+.booking-panel dd { margin: 7px 0 0; line-height: 1.65; font-size: 14px; overflow-wrap: anywhere; }
+.booking-panel dd span { display: block; color: var(--muted); font-size: 12px; }
+.booking-more { display: block; text-align: center; margin-top: 20px; }
+.closed-message { color: var(--muted); line-height: 1.7; }
+@media (max-width: 800px) { .detail-hero-grid, .detail-layout { grid-template-columns: 1fr; gap: 32px; } .detail-photo { height: 230px; } .booking-panel { max-width: 100%; } }
