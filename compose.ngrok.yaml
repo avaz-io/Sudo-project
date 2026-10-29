@@ -1,4 +1,4 @@
-# Opt in with: docker compose -f compose.yaml -f compose.ngrok.yaml up ngrok
+# Opt in with make demo after setting NGROK_AUTHTOKEN in the root .env.
 services:
   ngrok:
     # ngrok 3.39.13; the digest keeps the demo image reproducible.

@@ -10,7 +10,7 @@ help:
 	@echo "make deploy  Rerun tests, then start the backend and wait for health"
 	@echo "make demo    Rerun tests, then start the healthy backend and ngrok"
 	@echo "make status  Show service status, including the finished test job"
-	@echo "make logs    Show recent service logs, including the ngrok URL"
+	@echo "make logs    Show recent backend and test logs"
 	@echo "make down    Remove this project's containers; keep the database volume"
 
 test:
